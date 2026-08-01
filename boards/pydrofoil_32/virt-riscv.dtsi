@@ -1,0 +1,88 @@
+/*
+ * Copyright (c) 2020 Cobham Gaisler AB
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * This file is based on:
+ *   qemu-system-riscv32 -machine virt,dumpdtb=virt.dtb -smp 8 -m 256
+ *   dtc virt.dtb > virt.dtsi
+ */
+
+/dts-v1/;
+
+/ {
+	#address-cells = <0x01>;
+	#size-cells = <0x01>;
+	compatible = "riscv-virtio";
+	model = "riscv-virtio,qemu";
+
+	cpus {
+		#address-cells = <0x01>;
+		#size-cells = <0x00>;
+
+		cpu@0 {
+			device_type = "cpu";
+			reg = <0x00>;
+			status = "okay";
+			compatible = "qemu,riscv-virt", "riscv";
+
+			hlic0: interrupt-controller {
+				compatible = "riscv,cpu-intc";
+				#address-cells = <0>;
+				#interrupt-cells = <0x01>;
+				interrupt-controller;
+			};
+		};
+		cpu@1 {
+			device_type = "cpu";
+			reg = <0x01>;
+			status = "okay";
+			compatible = "qemu,riscv-virt", "riscv";
+
+			hlic1: interrupt-controller {
+				compatible = "riscv,cpu-intc";
+				#address-cells = <0>;
+				#interrupt-cells = <0x01>;
+				interrupt-controller;
+			};
+		};
+	};
+
+	ram0: memory@80000000 {
+		device_type = "memory";
+		reg = <0x80000000 0x10000000>;
+	};
+
+	soc {
+		#address-cells = <0x01>;
+		#size-cells = <0x01>;
+		compatible = "simple-bus";
+		ranges;
+
+		plic: interrupt-controller@80021000 {
+			riscv,max-priority = <7>;
+			riscv,ndev = <1024>;
+			reg = <0x80021000 0x202000>;
+			interrupts-extended = <&hlic0 0x0b &hlic0 0x09>;
+			interrupt-controller;
+			compatible = "sifive,plic-1.0.0";
+			#address-cells = <0x00>;
+			#interrupt-cells = <0x02>;
+		};
+
+		clint: clint@80400000 {
+			compatible = "sifive,clint0";
+			reg = <0x80400000 0x10000>;
+			interrupts-extended = <&hlic0 0x03 &hlic0 0x07>;
+		};
+
+		mtimer: timer@200bff8 {
+			compatible = "riscv,machine-timer";
+			interrupts-extended = <&hlic0 7>;
+			reg = <0x200bff8 0x8 0x2004000 0x8>;
+			reg-names = "mtime", "mtimecmp";
+		};
+	};
+};

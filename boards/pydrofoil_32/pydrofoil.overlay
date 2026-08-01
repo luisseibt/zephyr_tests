@@ -1,0 +1,17 @@
+/delete-node/ &clint;
+/delete-node/ &mtimer;
+/delete-node/ &plic;
+/ {
+    /* We are modifying the root of the device tree */
+    reserved-memory {
+        #address-cells = <1>;
+        #size-cells = <1>;
+        ranges;
+
+        /* Create a radioactive zone starting exactly at 0x80001000 */
+        htif_trap_zone: memory@80001000 {
+            reg = <0x80001000 0x100>; /* Reserve 256 bytes */
+            no-map;                   /* Tell the OS and Linker to stay out! */
+        };
+    };
+};

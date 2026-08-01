@@ -1,0 +1,6 @@
+board:
+  name: pydrofoil_32
+  full_name: Pydrofoil 32-bit Virtual Prototype
+  vendor: pydrofoil
+  socs:
+    - name: pydrofoil_riscv32

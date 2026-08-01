@@ -1,0 +1,3 @@
+if SERIAL
+rsource "uart_pydrofoil/Kconfig"
+endif # SERIAL 

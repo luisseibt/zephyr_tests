@@ -1,0 +1,4 @@
+family:
+- name: pydrofoil_riscv
+  socs:
+  - name: pydrofoil_riscv32

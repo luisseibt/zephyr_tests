@@ -1,0 +1,7 @@
+config SOC_FAMILY_PYDROFOIL_RISCV
+	bool
+
+config SOC_FAMILY
+	default "pydrofoil_riscv" if SOC_FAMILY_PYDROFOIL_RISCV
+
+rsource "*/Kconfig.soc"

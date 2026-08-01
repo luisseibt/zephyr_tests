@@ -1,0 +1,1 @@
+add_subdirectory_ifdef(CONFIG_UART_PYDROFOIL uart_pydrofoil)

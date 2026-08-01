@@ -1,0 +1,6 @@
+config SOC_PYDROFOIL_RISCV32
+	bool
+	select SOC_FAMILY_PYDROFOIL_RISCV
+
+config SOC
+	default "pydrofoil_riscv32" if SOC_PYDROFOIL_RISCV32

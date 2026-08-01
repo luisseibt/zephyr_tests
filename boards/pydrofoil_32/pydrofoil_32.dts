@@ -1,0 +1,41 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/dts-v1/;
+
+#include "virt-riscv32.dtsi"
+
+/ {
+	chosen {
+		zephyr,console = &uart_new;
+		zephyr,shell-uart = &uart_new;
+		zephyr,sram = &ram0;
+	};
+	uart_new: uart@80020000 {
+		compatible = "pydrofoil,nrf-uart";
+		reg = <0x80020000 0x1000>;
+	};
+
+};
+
+&ram0 {
+	reg = <0x80002000 0x20000>;
+};
+
+/* 2. Wire Core 1's interrupts to the CLINT */
+&clint {
+	status = "okay";
+	/* hlic0 = Core 0 | hlic1 = Core 1 */
+	/* 0x03 = Software Interrupt (MSIP) | 0x07 = Timer Interrupt (MTIP) */
+	interrupts-extended = <&hlic0 0x03 &hlic0 0x07 &hlic1 0x03 &hlic1 0x07>;
+};
+
+/* 3. Wire Core 1's interrupts to the MTIMER (if Zephyr uses it instead of CLINT for timers) */
+&mtimer {
+	status = "okay";
+	interrupts-extended = <&hlic0 0x07 &hlic1 0x07>;
+};
+
+&plic {
+	status = "okay";
+	interrupts-extended = <&hlic0 0x0b>; 
+};

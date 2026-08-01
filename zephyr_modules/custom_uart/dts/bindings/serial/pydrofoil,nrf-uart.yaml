@@ -1,0 +1,4 @@
+description: Custom Pydrofoil nRF51 UART Emulator
+compatible: "pydrofoil,nrf-uart"
+
+include: uart-controller.yaml
