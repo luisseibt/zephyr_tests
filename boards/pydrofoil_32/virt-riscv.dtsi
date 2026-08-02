@@ -78,10 +78,10 @@
 			interrupts-extended = <&hlic0 0x03 &hlic0 0x07>;
 		};
 
-		mtimer: timer@200bff8 {
+		mtimer: timer@400bff8 {
 			compatible = "riscv,machine-timer";
 			interrupts-extended = <&hlic0 7>;
-			reg = <0x200bff8 0x8 0x2004000 0x8>;
+			reg = <0x0400bff8 0x8 0x04004000 0x8>;
 			reg-names = "mtime", "mtimecmp";
 		};
 	};

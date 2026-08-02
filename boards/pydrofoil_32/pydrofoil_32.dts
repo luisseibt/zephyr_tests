@@ -34,6 +34,8 @@
 &mtimer {
 	status = "okay";
 	interrupts-extended = <&hlic0 0x07 &hlic1 0x07>;
+	reg = <0x0400bff8 0x8 0x04004000 0x10>;
+	reg-names = "mtime", "mtimecmp";
 };
 
 &plic {
