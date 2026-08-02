@@ -61,10 +61,10 @@
 		compatible = "simple-bus";
 		ranges;
 
-		plic: interrupt-controller@80021000 {
+		plic: interrupt-controller@0C000000 {
 			riscv,max-priority = <7>;
 			riscv,ndev = <1024>;
-			reg = <0x80021000 0x202000>;
+			reg = <0x0C000000 0x202000>;
 			interrupts-extended = <&hlic0 0x0b &hlic0 0x09>;
 			interrupt-controller;
 			compatible = "sifive,plic-1.0.0";
@@ -72,9 +72,9 @@
 			#interrupt-cells = <0x02>;
 		};
 
-		clint: clint@80400000 {
+		clint: clint@04000000 {
 			compatible = "sifive,clint0";
-			reg = <0x80400000 0x10000>;
+			reg = <0x04000000 0x10000>;
 			interrupts-extended = <&hlic0 0x03 &hlic0 0x07>;
 		};
 
