@@ -3,21 +3,35 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-/* Use buckets to match the OpenMP logic */
+/* Use buckets to match the OpenMP logic we will use later */
 #define USE_BUCKETS
-#define SIMDEV_CORE_DONE (*(volatile unsigned int *)(0x1E203000))
-#define MULTICORE_SIMDEV_CORE_DONE (*(volatile unsigned int *)(0x1C203000))
 
-#define GET_SIM_TIME (*(volatile uint32_t *)(0x1E203020))
-#define MULTICORE_SIM_DEV_GET_SIM_TIME (*(volatile uint32_t *)(0x1C203020))
+/* Default to Small Class (Class S) to fit comfortably in 4MB RAM */
 
-/* Custom Nano Class for ultra-fast Simulator testing */
+/* Custom Micro Class for fast Simulator testing */
+// #define CLASS 'S'
 #define CLASS 'N'
 
 #if CLASS == 'N'
-#define  TOTAL_KEYS_LOG_2    10  // 1,024 keys
+#define  TOTAL_KEYS_LOG_2    10  // 1,024 keys (down from 65,536)
 #define  MAX_KEY_LOG_2       7   // Max key 128
 #define  NUM_BUCKETS_LOG_2   5   // 32 buckets
+#endif
+
+// #define CLASS 'M'
+
+#if CLASS == 'M'
+#define  TOTAL_KEYS_LOG_2    12  // 4,096 keys (down from 65,536)
+#define  MAX_KEY_LOG_2       9   // Max key 512
+#define  NUM_BUCKETS_LOG_2   7   // 128 buckets
+#endif
+
+// #define  MAX_ITERATIONS      1   // Only sort exactly once
+
+#if CLASS == 'S'
+#define  TOTAL_KEYS_LOG_2    16
+#define  MAX_KEY_LOG_2       11
+#define  NUM_BUCKETS_LOG_2   9
 #endif
 
 #define  TOTAL_KEYS          (1 << TOTAL_KEYS_LOG_2)
@@ -34,22 +48,7 @@ typedef int INT_TYPE;
 INT_TYPE *key_buff_ptr_global;
 int      passed_verification;
 
-/* --- Zephyr SMP Threading Setup --- */
-#define STACK_SIZE 2048
-#define THREAD_PRIORITY 7
-
-K_THREAD_STACK_DEFINE(core1_stack, STACK_SIZE);
-struct k_thread core1_thread_data;
-
-/* Semaphores for barrier synchronization */
-K_SEM_DEFINE(core1_start_sem, 0, 1);
-K_SEM_DEFINE(core1_done_sem, 0, 1);
-
-/* Per-core bucket histograms */
-INT_TYPE bucket_size_core0[NUM_BUCKETS];
-INT_TYPE bucket_size_core1[NUM_BUCKETS];
-
-/* The large static arrays */
+/* The large static arrays (requires ~550KB of contiguous RAM) */
 INT_TYPE key_array[SIZE_OF_BUFFERS],    
          key_buff1[MAX_KEY],    
          key_buff2[SIZE_OF_BUFFERS],
@@ -62,7 +61,6 @@ INT_TYPE bucket_size[NUM_BUCKETS],
 
 INT_TYPE test_index_array[TEST_ARRAY_SIZE],
          test_rank_array[TEST_ARRAY_SIZE],
-         /* Safe indices for the Nano 1024-element array */
          S_test_index_array[TEST_ARRAY_SIZE] = {10, 50, 100, 150, 200},
          S_test_rank_array[TEST_ARRAY_SIZE]  = {0, 0, 0, 0, 0};
 
@@ -95,12 +93,14 @@ void create_seq(double seed, double a) {
     double x;
     int i, k = MAX_KEY / 4;
     for (i = 0; i < NUM_KEYS; i++) {
+        // printk("create_seq: i = %d, out of %d\n", i, NUM_KEYS);
         x = randlc(&seed, &a);
         x += randlc(&seed, &a);
         x += randlc(&seed, &a);
         x += randlc(&seed, &a);  
         key_array[i] = k * x;
     }
+    printk("create_seq: done\n");
 }
 
 void full_verify(void) {
@@ -123,64 +123,30 @@ void full_verify(void) {
     }
 }
 
-/* Worker function running strictly on Core 1 */
-void core1_worker_thread(void *arg1, void *arg2, void *arg3) {
-    int shift = MAX_KEY_LOG_2 - NUM_BUCKETS_LOG_2;
-    int start_idx = NUM_KEYS / 2;
-    int end_idx = NUM_KEYS;
-
-    while (1) {
-        /* Wait for Core 0 to signal start */
-        k_sem_take(&core1_start_sem, K_FOREVER);
-
-        /* Core 1's work: Histogram of second half of keys */
-        for (int i = 0; i < NUM_BUCKETS; i++) bucket_size_core1[i] = 0;
-        for (int i = start_idx; i < end_idx; i++) {
-            bucket_size_core1[key_array[i] >> shift]++;
-        }
-
-        /* Signal Core 0 that Core 1 is finished */
-        k_sem_give(&core1_done_sem);
-    }
-}
-
 void rank(int iteration) {
+    printk("rank started\n");
     INT_TYPE i, k, *key_buff_ptr, *key_buff_ptr2;
 #ifdef USE_BUCKETS
     int shift = MAX_KEY_LOG_2 - NUM_BUCKETS_LOG_2;
     INT_TYPE key;
 #endif
 
+    printk("In funtion rank\n");
     key_array[iteration] = iteration;
     key_array[iteration + MAX_ITERATIONS] = MAX_KEY - iteration;
 
     for(i = 0; i < TEST_ARRAY_SIZE; i++){
+        printk("    i = %d, out of %d\n", i, TEST_ARRAY_SIZE);
         partial_verify_vals[i] = key_array[test_index_array[i]];
+
     }
 
 #ifdef USE_BUCKETS
-    /* ============================================================ */
-    /* PARALLEL SECTION: Dual-Core Bucket Counting                  */
-    /* ============================================================ */
-    
-    /* 1. Wake up Core 1 */
-    k_sem_give(&core1_start_sem);
-
-    /* 2. Core 0 does its work on the first half of keys in parallel */
-    for (i = 0; i < NUM_BUCKETS; i++) bucket_size_core0[i] = 0;
-    for (i = 0; i < NUM_KEYS / 2; i++) {
-        bucket_size_core0[key_array[i] >> shift]++;
+    for(i = 0; i < NUM_BUCKETS; i++) {
+        bucket_size[i] = 0;
+        printk("i = %d, bucket_size[i] = %d, number of buckets: %d\n", i, bucket_size[i], NUM_BUCKETS);
     }
-
-    /* 3. Wait for Core 1 to finish */
-    k_sem_take(&core1_done_sem, K_FOREVER);
-
-    /* 4. Combine results (Reduction) */
-    for (i = 0; i < NUM_BUCKETS; i++) {
-        bucket_size[i] = bucket_size_core0[i] + bucket_size_core1[i];
-    }
-    
-    /* ============================================================ */
+    for(i = 0; i < NUM_KEYS; i++) bucket_size[key_array[i] >> shift]++;
     
     bucket_ptrs[0] = 0;
     for(i = 1; i < NUM_BUCKETS; i++)  
@@ -202,6 +168,7 @@ void rank(int iteration) {
     for(i = 0; i < MAX_KEY-1; i++) key_buff_ptr[i+1] += key_buff_ptr[i];  
 
     for(i = 0; i < TEST_ARRAY_SIZE; i++) {   
+        printk("    iteration %d, test key %d, rank %d\n", iteration, i, key_buff_ptr[partial_verify_vals[i]]);                                          
         k = partial_verify_vals[i];          
         if(0 < k && k <= NUM_KEYS-1) {
             INT_TYPE key_rank = key_buff_ptr[k-1];
@@ -213,59 +180,60 @@ void rank(int iteration) {
                 if(key_rank != test_rank_array[i] - iteration) failed = 1;
                 else passed_verification++;
             }
+            if(failed == 1) {
+                printk("Failed partial verification: iteration %d, test key %d\n", iteration, i);
+            }
         }
     }
     if(iteration == MAX_ITERATIONS) key_buff_ptr_global = key_buff_ptr;
 }      
-
+#define SIMDEV_CORE_DONE (*(volatile unsigned int *)(0x1E203000))
 int main(void) {
     int i, iteration;
-
+    int64_t start_time, end_time;
+    printk("starting main\n");
     /* Initialize the verification arrays */
+    
     for(i = 0; i < TEST_ARRAY_SIZE; i++) {
         test_index_array[i] = S_test_index_array[i];
         test_rank_array[i]  = S_test_rank_array[i];
     }
 
-    printk("\n\n NAS Parallel Benchmarks (Zephyr SMP) - IS Benchmark\n\n");
+
+    printk("\n\n NAS Parallel Benchmarks (Zephyr Serial) - IS Benchmark\n\n");
     printk(" Size:  %d  (class %c)\n", TOTAL_KEYS, CLASS);
     printk(" Iterations:   %d\n", MAX_ITERATIONS);
-
-    /* Spawn Core 1 Worker Thread */
-    k_thread_create(&core1_thread_data, core1_stack,
-                    K_THREAD_STACK_SIZEOF(core1_stack),
-                    core1_worker_thread,
-                    NULL, NULL, NULL,
-                    THREAD_PRIORITY, 0, K_NO_WAIT);
 
     /* Initialization phase */
     create_seq(314159265.00, 1220703125.00);                 
 
     /* Do one iteration untimed to guarantee initialization of tables */
-    printk("Initialization done, counting time\n");
-    printk("Sim time: %u\n", MULTICORE_SIM_DEV_GET_SIM_TIME);
     rank(1);  
     passed_verification = 0;
     
     printk("\n   iteration\n");
 
     /* START TIMER */
+    start_time = 1;
 
     for(iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
         printk("        %d\n", iteration);
         rank(iteration);
     }
 
+    /* END TIMER */
+    end_time = 5;
+
     /* Final verification */
     full_verify();
 
-    /* Removed strict partial verification check for custom Nano class */
     // if(passed_verification != 5 * MAX_ITERATIONS + 1) passed_verification = 0;
 
     printk("\n===================================\n");
     printk("Verification: %s\n", passed_verification ? "SUCCESSFUL" : "FAILED");
+    printk("Ranking Time: %lld milliseconds\n", end_time - start_time);
     printk("===================================\n");
-    MULTICORE_SIMDEV_CORE_DONE = 1;
-    MULTICORE_SIMDEV_CORE_DONE = 0;
+    SIMDEV_CORE_DONE = 1;
+
     return 0;
 }
