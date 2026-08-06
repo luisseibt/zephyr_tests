@@ -2,44 +2,16 @@
 #include <zephyr/sys/printk.h>
 #include <stdlib.h>
 #include <stdint.h>
+/* --- HIER WIRD DAS ARRAY GELADEN --- */
+#include "array_include.h"
+/* ----------------------------------- */
 
 #define USE_BUCKETS
 #define MULTICORE_SIMDEV_CORE_DONE (*(volatile unsigned int *)(0x1C203000))
 /* 32-Bit Cast Fix, um den %u Fehler zu vermeiden */
 #define MULTICORE_SIM_DEV_GET_SIM_TIME ((uint32_t)(*(volatile uint64_t *)(0x1C203020)))
 
-#define CLASS 'S'
-
-#if CLASS == 'N'
-#define  TOTAL_KEYS_LOG_2    10  // 1,024 keys
-#define  MAX_KEY_LOG_2       7   // Max key 128
-#define  NUM_BUCKETS_LOG_2   5   // 32 buckets
-#endif
-
-#if CLASS == 'M'
-#define  TOTAL_KEYS_LOG_2    12  // 4,096 keys (down from 65,536)
-#define  MAX_KEY_LOG_2       9   // Max key 512
-#define  NUM_BUCKETS_LOG_2   7   // 128 buckets
-#endif
-
-#if CLASS == 'S'
-#define  TOTAL_KEYS_LOG_2    16
-#define  MAX_KEY_LOG_2       11
-#define  NUM_BUCKETS_LOG_2   9
-#endif
-
-#define  TOTAL_KEYS          (1 << TOTAL_KEYS_LOG_2)
-#define  MAX_KEY             (1 << MAX_KEY_LOG_2)
-#define  NUM_BUCKETS         (1 << NUM_BUCKETS_LOG_2)
-#define  NUM_KEYS            TOTAL_KEYS
-#define  SIZE_OF_BUFFERS     NUM_KEYS  
-
-#define  MAX_ITERATIONS      10
-#define  TEST_ARRAY_SIZE     5
-
-typedef int INT_TYPE;
-
-INT_TYPE *key_buff_ptr_global;
+int      passed_verification;
 
 /* --- Zephyr SMP Threading Setup --- */
 #define STACK_SIZE 4096
@@ -55,11 +27,18 @@ K_SEM_DEFINE(core1_done_sem, 0, 1);
 /* TRICK 1: 2D Array für konfliktfreies Zählen (Core 0 = [0], Core 1 = [1]) */
 INT_TYPE bucket_size[2][NUM_BUCKETS];
 INT_TYPE global_bucket_ptrs[NUM_BUCKETS];
+INT_TYPE local_bucket_ptrs_core0[NUM_BUCKETS];
+INT_TYPE local_bucket_ptrs_core1[NUM_BUCKETS];
 
 /* The large static arrays */
-INT_TYPE key_array[SIZE_OF_BUFFERS],    
-         key_buff1[MAX_KEY],    
-         key_buff2[SIZE_OF_BUFFERS];
+INT_TYPE key_buff1[MAX_KEY],    
+         key_buff2[SIZE_OF_BUFFERS],
+         partial_verify_vals[TEST_ARRAY_SIZE];
+
+INT_TYPE test_index_array[TEST_ARRAY_SIZE],
+         test_rank_array[TEST_ARRAY_SIZE],
+         S_test_index_array[TEST_ARRAY_SIZE] = {48427,17148,23627,62548,4431},
+         S_test_rank_array[TEST_ARRAY_SIZE]  = {0,18,346,64917,65463};
 
 /* Portable random number generator */
 double randlc(double *X, double *A) {
@@ -90,19 +69,19 @@ void print_hard_id(void) {
     printk("Executing on Hardware Core ID: 0x%08X\n", hard_id);
 }
 
-void create_seq(double seed, double a) {
-    double x;
-    int i, k = MAX_KEY / 4;
-    for (i = 0; i < NUM_KEYS; i++) {
-        x = randlc(&seed, &a);
-        x += randlc(&seed, &a);
-        x += randlc(&seed, &a);
-        x += randlc(&seed, &a);  
-        key_array[i] = k * x;
-        if ((i % 4096) == 0) printk(".");
-    }
-    printk(" Init Done!\n");
-}
+// void create_seq(double seed, double a) {
+//     double x;
+//     int i, k = MAX_KEY / 4;
+//     for (i = 0; i < NUM_KEYS; i++) {
+//         x = randlc(&seed, &a);
+//         x += randlc(&seed, &a);
+//         x += randlc(&seed, &a);
+//         x += randlc(&seed, &a);  
+//         key_array[i] = k * x;
+//         if ((i % 4096) == 0) printk(".");
+//     }
+//     printk(" Init Done!\n");
+// }
 
 /* Worker function running strictly on Core 1 */
 void core1_worker_thread(void *arg1, void *arg2, void *arg3) {
@@ -111,7 +90,7 @@ void core1_worker_thread(void *arg1, void *arg2, void *arg3) {
     int num_bucket_keys = (1 << shift);
     
     /* TRICK 2: Thread-Privater Pointer Array für den Scatter */
-    INT_TYPE local_bucket_ptrs[NUM_BUCKETS];
+    // INT_TYPE local_bucket_ptrs[NUM_BUCKETS];
 
     while (1) {
         /* ================= PHASE 1: COUNTING ================= */
@@ -129,14 +108,14 @@ void core1_worker_thread(void *arg1, void *arg2, void *arg3) {
         k_sem_take(&core1_start_sem, K_FOREVER);
 
         /* Berechnet Core 1's exakte Start-Indizes */
-        local_bucket_ptrs[0] = bucket_size[0][0];
+        local_bucket_ptrs_core1[0] = bucket_size[0][0];
         for (int i = 1; i < NUM_BUCKETS; i++) {
-            local_bucket_ptrs[i] = local_bucket_ptrs[i-1] + bucket_size[1][i-1] + bucket_size[0][i];
+            local_bucket_ptrs_core1[i] = local_bucket_ptrs_core1[i-1] + bucket_size[1][i-1] + bucket_size[0][i];
         }
 
         for (int i = NUM_KEYS / 2; i < NUM_KEYS; i++) {
             INT_TYPE key = key_array[i];
-            key_buff2[local_bucket_ptrs[key >> shift]++] = key;
+            key_buff2[local_bucket_ptrs_core1[key >> shift]++] = key;
         }
 
         k_sem_give(&core1_done_sem);
@@ -169,15 +148,19 @@ void core1_worker_thread(void *arg1, void *arg2, void *arg3) {
 
 void rank(int iteration) {
     printk("DEBUG::The function rank() is executed on the core with following hartid: 0x%08X\n", arch_proc_id());
-    INT_TYPE i;
+    INT_TYPE i, k;
     int shift = MAX_KEY_LOG_2 - NUM_BUCKETS_LOG_2;
     int num_bucket_keys = (1 << shift);
     
     /* Thread-Privater Pointer für Core 0 */
-    INT_TYPE local_bucket_ptrs[NUM_BUCKETS];
+    // INT_TYPE local_bucket_ptrs[NUM_BUCKETS];
 
     key_array[iteration] = iteration;
     key_array[iteration + MAX_ITERATIONS] = MAX_KEY - iteration;
+
+    for(i = 0; i < TEST_ARRAY_SIZE; i++){
+        partial_verify_vals[i] = key_array[test_index_array[i]];
+    }
 
     /* ================= PHASE 1: COUNTING ================= */
     k_sem_give(&core1_start_sem); /* Wecke Core 1 */
@@ -194,9 +177,9 @@ void rank(int iteration) {
     k_sem_give(&core1_start_sem);
 
     /* Core 0 Prefix Sum */
-    local_bucket_ptrs[0] = 0;
+    local_bucket_ptrs_core0[0] = 0;
     for (i = 1; i < NUM_BUCKETS; i++) {
-        local_bucket_ptrs[i] = local_bucket_ptrs[i-1] + bucket_size[0][i-1] + bucket_size[1][i-1];
+        local_bucket_ptrs_core0[i] = local_bucket_ptrs_core0[i-1] + bucket_size[0][i-1] + bucket_size[1][i-1];
     }
     
     /* Globale Startpunkte für Phase 4 vorbereiten */
@@ -208,7 +191,7 @@ void rank(int iteration) {
     /* Scatter Core 0 */
     for (i = 0; i < NUM_KEYS / 2; i++) {
         INT_TYPE key = key_array[i];
-        key_buff2[local_bucket_ptrs[key >> shift]++] = key;
+        key_buff2[local_bucket_ptrs_core0[key >> shift]++] = key;
     }
 
     k_sem_take(&core1_done_sem, K_FOREVER);
@@ -236,13 +219,53 @@ void rank(int iteration) {
     }
 
     k_sem_take(&core1_done_sem, K_FOREVER);
+
+
+    /* ================= VERIFICATION ================= */
+    for(i = 0; i < TEST_ARRAY_SIZE; i++) {   
+        k = partial_verify_vals[i];          
+        if(0 < k && k <= NUM_KEYS-1) {
+            INT_TYPE key_rank = key_buff1[k-1];
+            int failed = 0;
+            if(i <= 2) {
+                if(key_rank != test_rank_array[i] + iteration) failed = 1;
+                else passed_verification++;
+            } else {
+                if(key_rank != test_rank_array[i] - iteration) failed = 1;
+                else passed_verification++;
+            }
+        }
+    }
     
     if(iteration == MAX_ITERATIONS) key_buff_ptr_global = key_buff1;
+}      
+
+
+void full_verify(void) {
+    INT_TYPE i, j;
+    for(i = 0; i < NUM_KEYS; i++) {
+        key_array[--key_buff_ptr_global[key_buff2[i]]] = key_buff2[i];
+    }
+    
+    j = 0;
+    for(i = 1; i < NUM_KEYS; i++) {
+        if(key_array[i-1] > key_array[i]) j++;
+    }
+
+    if(j != 0) printk("Full_verify: keys out of sort: %d\n", j);
+    else passed_verification++;
 }
 
+
 int main(void) {
-    int iteration;
+    int i, iteration;
+    uint32_t start_time, end_time;
     printk("DEBUG::The function main() is executed on the core with following hartid: 0x%08X\n", arch_proc_id());
+
+    for(i = 0; i < TEST_ARRAY_SIZE; i++) {
+        test_index_array[i] = S_test_index_array[i];
+        test_rank_array[i]  = S_test_rank_array[i];
+    }
 
     printk("\n\n NAS Parallel Benchmarks (Zephyr SMP) - IS Benchmark\n");
     printk(" Size:  %d  (class %c)\n", TOTAL_KEYS, CLASS);
@@ -254,25 +277,32 @@ int main(void) {
                     core1_worker_thread, NULL, NULL, NULL,
                     THREAD_PRIORITY, 0, K_NO_WAIT);
 
-    create_seq(314159265.00, 1220703125.00);                 
+    // create_seq(314159265.00, 1220703125.00);                 
 
+    passed_verification = 0;
     
     /* Untimed initial rank */
     rank(1);  
-    printk("Initialization done, counting time simdev has time %u\n", MULTICORE_SIM_DEV_GET_SIM_TIME);
+    printk("Initialization done, counting time\n\n");
     
+    start_time = MULTICORE_SIM_DEV_GET_SIM_TIME;
     
     for(iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
         printk("   Iteration %d\n", iteration);
         rank(iteration);
     }
 
-    // printk("\n--- Komplettes Sorted Array ---\n");
-    // for (int idx = 0; idx < NUM_KEYS; idx++) {
-    //     /* Kuerzere Ausgabe, um die Zeilenanzahl/Zeit zu minimieren */
-    //     printk("%d\n", key_array[idx]);
-    // }
-    // printk("-------------------------------\n");
+    full_verify();
+
+    printk("\n===================================\n");
+    printk("===================================\n");
+
+    printk("\n--- Komplettes Sorted Array ---\n");
+    for (int idx = 0; idx < NUM_KEYS; idx++) {
+        /* Kuerzere Ausgabe, um die Zeilenanzahl/Zeit zu minimieren */
+        printk("%d\n", key_array[idx]);
+    }
+    printk("-------------------------------\n");
     
     MULTICORE_SIMDEV_CORE_DONE = 1;
     MULTICORE_SIMDEV_CORE_DONE = 0;
