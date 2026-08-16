@@ -292,11 +292,13 @@ int main(void) {
         rank(iteration);
     }
 
-    full_verify();
-
+    
     printk("\n===================================\n");
-    printk("===================================\n");
-
+    
+    
+    MULTICORE_SIMDEV_CORE_DONE = 1;
+    MULTICORE_SIMDEV_CORE_DONE = 0;
+    full_verify();
     printk("\n--- Komplettes Sorted Array ---\n");
     for (int idx = 0; idx < NUM_KEYS; idx++) {
         /* Kuerzere Ausgabe, um die Zeilenanzahl/Zeit zu minimieren */
@@ -304,7 +306,5 @@ int main(void) {
     }
     printk("-------------------------------\n");
     
-    MULTICORE_SIMDEV_CORE_DONE = 1;
-    MULTICORE_SIMDEV_CORE_DONE = 0;
     return 0;
 }
