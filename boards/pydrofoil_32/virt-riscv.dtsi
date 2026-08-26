@@ -1,14 +1,11 @@
 /*
  * Copyright (c) 2020 Cobham Gaisler AB
- *
  * SPDX-License-Identifier: Apache-2.0
  */
 
-/*
- * This file is based on:
- *   qemu-system-riscv32 -machine virt,dumpdtb=virt.dtb -smp 8 -m 256
- *   dtc virt.dtb > virt.dtsi
- */
+#ifndef NRCPU
+#define NRCPU 2 /* Fallback, falls nicht von außen gesetzt */
+#endif
 
 /dts-v1/;
 
@@ -22,6 +19,7 @@
 		#address-cells = <0x01>;
 		#size-cells = <0x00>;
 
+		/* CPU 0 ist immer aktiv */
 		cpu@0 {
 			device_type = "cpu";
 			reg = <0x00>;
@@ -35,6 +33,8 @@
 				interrupt-controller;
 			};
 		};
+
+#if NRCPU > 1
 		cpu@1 {
 			device_type = "cpu";
 			reg = <0x01>;
@@ -48,6 +48,37 @@
 				interrupt-controller;
 			};
 		};
+#endif
+
+#if NRCPU > 2
+		cpu@2 {
+			device_type = "cpu"; reg = <0x02>; status = "okay"; compatible = "qemu,riscv-virt", "riscv";
+			hlic2: interrupt-controller { compatible = "riscv,cpu-intc"; #address-cells = <0>; #interrupt-cells = <0x01>; interrupt-controller; };
+		};
+		cpu@3 {
+			device_type = "cpu"; reg = <0x03>; status = "okay"; compatible = "qemu,riscv-virt", "riscv";
+			hlic3: interrupt-controller { compatible = "riscv,cpu-intc"; #address-cells = <0>; #interrupt-cells = <0x01>; interrupt-controller; };
+		};
+#endif
+
+#if NRCPU > 4
+		cpu@4 {
+			device_type = "cpu"; reg = <0x04>; status = "okay"; compatible = "qemu,riscv-virt", "riscv";
+			hlic4: interrupt-controller { compatible = "riscv,cpu-intc"; #address-cells = <0>; #interrupt-cells = <0x01>; interrupt-controller; };
+		};
+		cpu@5 {
+			device_type = "cpu"; reg = <0x05>; status = "okay"; compatible = "qemu,riscv-virt", "riscv";
+			hlic5: interrupt-controller { compatible = "riscv,cpu-intc"; #address-cells = <0>; #interrupt-cells = <0x01>; interrupt-controller; };
+		};
+		cpu@6 {
+			device_type = "cpu"; reg = <0x06>; status = "okay"; compatible = "qemu,riscv-virt", "riscv";
+			hlic6: interrupt-controller { compatible = "riscv,cpu-intc"; #address-cells = <0>; #interrupt-cells = <0x01>; interrupt-controller; };
+		};
+		cpu@7 {
+			device_type = "cpu"; reg = <0x07>; status = "okay"; compatible = "qemu,riscv-virt", "riscv";
+			hlic7: interrupt-controller { compatible = "riscv,cpu-intc"; #address-cells = <0>; #interrupt-cells = <0x01>; interrupt-controller; };
+		};
+#endif
 	};
 
 	ram0: memory@80000000 {
@@ -61,11 +92,11 @@
 		compatible = "simple-bus";
 		ranges;
 
+		/* Die Peripherie wird hier deklariert, das Wiring machen wir in pydrofoil_32.dts */
 		plic: interrupt-controller@0C000000 {
 			riscv,max-priority = <7>;
 			riscv,ndev = <1024>;
 			reg = <0x0C000000 0x202000>;
-			interrupts-extended = <&hlic0 0x0b &hlic0 0x09>;
 			interrupt-controller;
 			compatible = "sifive,plic-1.0.0";
 			#address-cells = <0x00>;
@@ -75,12 +106,10 @@
 		clint: clint@04000000 {
 			compatible = "sifive,clint0";
 			reg = <0x04000000 0x10000>;
-			interrupts-extended = <&hlic0 0x03 &hlic0 0x07>;
 		};
 
 		mtimer: timer@400bff8 {
 			compatible = "riscv,machine-timer";
-			interrupts-extended = <&hlic0 7>;
 			reg = <0x0400bff8 0x8 0x04004000 0x8>;
 			reg-names = "mtime", "mtimecmp";
 		};

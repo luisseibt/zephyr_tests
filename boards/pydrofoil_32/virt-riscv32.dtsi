@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2024 Antmicro <www.antmicro.com>
- *
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -14,9 +13,21 @@
 			riscv,isa-base = "rv32i";
 			riscv,isa-extensions = "i", "m", "a", "c", "zicsr", "zifencei";
 		};
+#if NRCPU > 1
 		cpu@1 {
 			riscv,isa-base = "rv32i";
 			riscv,isa-extensions = "i", "m", "a", "c", "zicsr", "zifencei";
 		};
+#endif
+#if NRCPU > 2
+		cpu@2 { riscv,isa-base = "rv32i"; riscv,isa-extensions = "i", "m", "a", "c", "zicsr", "zifencei"; };
+		cpu@3 { riscv,isa-base = "rv32i"; riscv,isa-extensions = "i", "m", "a", "c", "zicsr", "zifencei"; };
+#endif
+#if NRCPU > 4
+		cpu@4 { riscv,isa-base = "rv32i"; riscv,isa-extensions = "i", "m", "a", "c", "zicsr", "zifencei"; };
+		cpu@5 { riscv,isa-base = "rv32i"; riscv,isa-extensions = "i", "m", "a", "c", "zicsr", "zifencei"; };
+		cpu@6 { riscv,isa-base = "rv32i"; riscv,isa-extensions = "i", "m", "a", "c", "zicsr", "zifencei"; };
+		cpu@7 { riscv,isa-base = "rv32i"; riscv,isa-extensions = "i", "m", "a", "c", "zicsr", "zifencei"; };
+#endif
 	};
 };
