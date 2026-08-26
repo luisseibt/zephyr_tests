@@ -4,7 +4,7 @@
  */
 
 #ifndef NRCPU
-#define NRCPU 2 /* Fallback, falls nicht von außen gesetzt */
+#define NRCPU 4 /* Fallback, falls nicht von außen gesetzt */
 #endif
 
 /dts-v1/;

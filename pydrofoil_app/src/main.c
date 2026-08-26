@@ -15,7 +15,7 @@
  * Anzahl der Cores für die Parallelisierung.
  * Erlaubte Werte: 1, 2, 4, 8
  */
-#define NUM_CORES 2
+#define NUM_CORES 4
 
 #if (NUM_CORES != 1) && (NUM_CORES != 2) && (NUM_CORES != 4) && (NUM_CORES != 8)
 #error "NUM_CORES must be 1, 2, 4, or 8"
@@ -335,15 +335,17 @@ int main(void) {
 
     printk("\n===================================\n");
     printk("===================================\n");
-    MULTICORE_SIMDEV_CORE_DONE = 1;
-    MULTICORE_SIMDEV_CORE_DONE = 0;
-
-    printk("\n--- Komplettes Sorted Array ---\n");
-    for (int idx = 0; idx < NUM_KEYS; idx++) {
-        /* Kuerzere Ausgabe, um die Zeilenanzahl/Zeit zu minimieren */
-        printk("%d\n", key_array[idx]);
+    
+    for (int c = 0; c < NUM_CORES; c++) {
+        MULTICORE_SIMDEV_CORE_DONE = c;     
     }
-    printk("-------------------------------\n");
+
+    // printk("\n--- Komplettes Sorted Array ---\n");
+    // for (int idx = 0; idx < NUM_KEYS; idx++) {
+    //     /* Kuerzere Ausgabe, um die Zeilenanzahl/Zeit zu minimieren */
+    //     printk("%d\n", key_array[idx]);
+    // }
+    // printk("-------------------------------\n");
     
     return 0;
 }
