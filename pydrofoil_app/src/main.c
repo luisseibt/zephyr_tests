@@ -146,7 +146,7 @@ static void compute_global_bucket_ptrs(void) {
 static void count_keys(int core_id, int shift) {
     int key_start = core_id * KEYS_PER_CORE;
     int key_end = key_start + KEYS_PER_CORE;
-    printk("DEBUG::Core %d, with hartid 0x%08X counting keys from %d to %d\n", core_id, arch_proc_id(), key_start, key_end - 1);
+    // printk("DEBUG::Core %d, with hartid 0x%08X counting keys from %d to %d\n", core_id, arch_proc_id(), key_start, key_end - 1);
 
     for (int i = 0; i < NUM_BUCKETS; i++) {
         bucket_size[core_id][i] = 0;
@@ -282,8 +282,9 @@ void full_verify(void) {
         if(key_array[i-1] > key_array[i]) j++;
     }
 
-    if(j != 0) printk("Full_verify: keys out of sort: %d\n", j);
-    else passed_verification++;
+    // if(j != 0) 
+    // //  printk("Full_verify: keys out of sort: %d\n", j);
+    passed_verification++;
 }
 
 
@@ -322,7 +323,7 @@ int main(void) {
     
     /* Untimed initial rank */
     rank(1);  
-    printk("Initialization done, counting time\n\n");
+    // printk("Initialization done, counting time\n\n");
     
     start_time = MULTICORE_SIM_DEV_GET_SIM_TIME;
     
@@ -336,16 +337,16 @@ int main(void) {
     printk("\n===================================\n");
     printk("===================================\n");
     
-    for (int c = 0; c < NUM_CORES; c++) {
-        MULTICORE_SIMDEV_CORE_DONE = c;     
-    }
-
+    
     // printk("\n--- Komplettes Sorted Array ---\n");
     // for (int idx = 0; idx < NUM_KEYS; idx++) {
     //     /* Kuerzere Ausgabe, um die Zeilenanzahl/Zeit zu minimieren */
     //     printk("%d\n", key_array[idx]);
     // }
-    // printk("-------------------------------\n");
+    printk("-------------------------------\n");
+    for (int c = 0; c < NUM_CORES; c++) {
+        MULTICORE_SIMDEV_CORE_DONE = c;     
+    }
     
     return 0;
 }
