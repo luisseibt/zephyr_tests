@@ -2,7 +2,7 @@ import random
 
 # Konfiguration für CLASS 'M' (4096 Keys, Max Value 512)
 # Falls du CLASS 'S' (65536) testen willst, passe dies einfach an!
-NUM_KEYS = 1048576
+NUM_KEYS = 8388608
 MAX_KEY = 512
 
 filename = "random_array.txt"
