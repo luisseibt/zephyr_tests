@@ -25,6 +25,7 @@
 			reg = <0x00>;
 			status = "okay";
 			compatible = "qemu,riscv-virt", "riscv";
+			clock-frequency = <1000000000>;
 
 			hlic0: interrupt-controller {
 				compatible = "riscv,cpu-intc";
@@ -93,21 +94,20 @@
 		ranges;
 
 		/* Die Peripherie wird hier deklariert, das Wiring machen wir in pydrofoil_32.dts */
-		plic: interrupt-controller@0C000000 {
-			riscv,max-priority = <7>;
-			riscv,ndev = <1024>;
-			reg = <0x0C000000 0x202000>;
-			interrupt-controller;
+		plic: interrupt-controller@c000000 {
 			compatible = "sifive,plic-1.0.0";
+			reg = <0x0C000000 0x224fff>;
+			interrupt-controller;
+			riscv,max-priority = <7>;
+			riscv,ndev = <1023>;
 			#address-cells = <0x00>;
 			#interrupt-cells = <0x02>;
 		};
 
-		clint: clint@04000000 {
+		clint: clint@4000000 {
 			compatible = "sifive,clint0";
 			reg = <0x04000000 0x10000>;
 		};
-
 		mtimer: timer@400bff8 {
 			compatible = "riscv,machine-timer";
 			reg = <0x0400bff8 0x8 0x04004000 0x8>;

@@ -2,7 +2,7 @@
 #define ARRAY_INCLUDE_H
 typedef int INT_TYPE;
 
-#define CLASS 'S'
+#define CLASS 'M'
 
 
 
