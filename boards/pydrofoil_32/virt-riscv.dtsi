@@ -4,7 +4,7 @@
  */
 
 #ifndef NRCPU
-#define NRCPU 1 /* Fallback, falls nicht von außen gesetzt */
+#define NRCPU 1
 #endif
 
 /dts-v1/;
@@ -93,7 +93,7 @@
 		compatible = "simple-bus";
 		ranges;
 
-		/* Die Peripherie wird hier deklariert, das Wiring machen wir in pydrofoil_32.dts */
+
 		plic: interrupt-controller@c000000 {
 			compatible = "sifive,plic-1.0.0";
 			reg = <0x0C000000 0x224fff>;
