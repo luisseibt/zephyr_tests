@@ -11,6 +11,9 @@ INT_TYPE *key_buff_ptr_global;
 #define MULTICORE_SIMDEV_CORE_DONE (*(volatile unsigned int *)(0x1C203000))
 /* 32-Bit Cast Fix, um den %u Fehler zu vermeiden */
 #define MULTICORE_SIM_DEV_GET_SIM_TIME ((uint32_t)(*(volatile uint64_t *)(0x1C203020)))
+#define SIMDEV_BASE      0x1E203000
+#define SIMDEV_EXIT      (*(volatile uint32_t *)(SIMDEV_BASE + 0x08)) // beendet die Simulation
+#define SIMDEV_SIM_TIME  (*(volatile uint64_t *)(SIMDEV_BASE + 0x18))
 
 /*
  * Anzahl der Cores für die Parallelisierung.
