@@ -18,8 +18,11 @@ INT_TYPE *key_buff_ptr_global;
 /*
  * Anzahl der Cores für die Parallelisierung.
  * Erlaubte Werte: 1, 2, 4, 8
+ * Von außen setzbar: west build ... -- -DIS_NUM_CORES=<n> (siehe build_is.sh)
  */
-#define NUM_CORES 1
+#ifndef NUM_CORES
+#define NUM_CORES 8
+#endif
 
 #if (NUM_CORES != 1) && (NUM_CORES != 2) && (NUM_CORES != 4) && (NUM_CORES != 8)
 #error "NUM_CORES must be 1, 2, 4, or 8"

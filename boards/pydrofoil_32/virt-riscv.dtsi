@@ -4,7 +4,7 @@
  */
 
 #ifndef NRCPU
-#define NRCPU 1
+#define NRCPU 8
 #endif
 
 /dts-v1/;

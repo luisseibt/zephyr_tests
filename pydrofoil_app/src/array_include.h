@@ -2,7 +2,10 @@
 #define ARRAY_INCLUDE_H
 typedef int INT_TYPE;
 
+// Von außen setzbar: west build ... -- -DIS_CLASS=<M|S|P|W|A> (siehe build_is.sh)
+#ifndef CLASS
 #define CLASS 'M'
+#endif
 
 
 
